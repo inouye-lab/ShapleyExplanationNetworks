@@ -20,7 +20,7 @@ from torch.nn import ModuleList
 from .basic import ShapleyModule, ShapleyNetwork
 from .shallow import ShallowShapleyNetwork
 from .utils import ModuleDimensions, NAME_FEATURES, \
-    NAME_META_CHANNELS, get_indices
+    NAME_META_CHANNELS, get_indices, named_tensor_get_dim
 from .utils.named_tensor_utils import TensorName
 
 
@@ -273,7 +273,9 @@ class DeepShapleyNetwork(ShapleyNetwork, ABC):
         """
         # First check if we need pruning in the first place
         pruning = self.pruning[id_stage]
-        if pruning == 0:
+        num_features = named_tensor_get_dim(shapley_values, NAME_FEATURES)
+        k = int(num_features * pruning)  # the number to prune
+        if pruning * k == 0:
             return shapley_values
 
         names = shapley_values.names
@@ -283,12 +285,13 @@ class DeepShapleyNetwork(ShapleyNetwork, ABC):
         # which the pruning will be performed
         abs_values = torch.linalg.norm(
             shapley_values.rename(None), ord=1, dim=-1)
-        k = int(abs_values.shape[-1] * pruning)  # the number to prune
         # generate top-k
         top_k = torch.topk(
             abs_values.rename(None), k, largest=False
-        )[0].max(1, keepdim=True)[0]  # threshold of the values to be pruned
-        shapley_values = shapley_values * (abs_values > top_k).unsqueeze(-1)
+        )[0].max(1, keepdim=True)[0]  # threshold of the values to prune
+        shapley_values = shapley_values * (
+                abs_values > top_k).unsqueeze(-1)
+
         shapley_values = shapley_values.align_to(*names)
 
         return shapley_values

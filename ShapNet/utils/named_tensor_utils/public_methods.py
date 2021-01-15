@@ -143,7 +143,9 @@ def named_tensor_split(tensor: torch.Tensor, split_size: int, dim: str) \
     return list(tensor.split(split_size, dim=dim_index))
 
 
-def named_tensor_get_dim(tensor: torch.Tensor, name: TensorName):
+def named_tensor_get_dim(
+        tensor: torch.Tensor, name: TensorName or List[TensorName]
+) -> List[int] or int:
     """
 
     Args:
@@ -153,8 +155,17 @@ def named_tensor_get_dim(tensor: torch.Tensor, name: TensorName):
     Returns:
 
     """
-    dicts = {name: val for name, val in zip(tensor.names, tensor.shape)}
-    return dicts[name]
+    single = False
+    if isinstance(name, TensorName):
+        name = [name]
+        single = True
+    dicts = {tensor_name: val for tensor_name, val in
+             zip(tensor.names, tensor.shape)}
+
+    if single:
+        return dicts[name[0]]
+    else:
+        return [dicts[tensor_name] for tensor_name in name]
 
 
 # =============================================================================

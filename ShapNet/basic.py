@@ -445,22 +445,3 @@ class ShapleyModule(ShapleyNetwork, ABC):
 
         return torch.from_numpy(weight).float().refine_names(NAME_NUM_PASSES)
 
-
-# =============================================================================
-# testing
-# =============================================================================
-if __name__ == "__main__":
-    b_size = 3
-    features = 4
-    out = 1
-    dims = ModuleDimensions(
-        features=features,
-        in_channel=1,
-        out_channel=out
-    )
-
-    sm = ShapleyModule(
-        inner_function=nn.Linear(features, out),
-        dimensions=dims
-    )
-    sm(torch.randn(b_size, features), explain=True)

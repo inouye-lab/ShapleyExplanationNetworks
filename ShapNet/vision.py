@@ -26,7 +26,7 @@ from .deep import DeepShapleyNetwork
 from .shallow import ShallowShapleyNetwork, ShallowSharedShapleyNetwork
 from .utils import ModuleDimensions, NAME_BATCH_SIZE, \
     NAME_FEATURES, NAME_FEATURES_META_CHANNEL, NAME_META_CHANNELS, \
-    NAME_PATCHES
+    NAME_PATCHES, named_tensor_get_dim
 from .utils.named_tensor_utils import NAME_HEIGHT, NAME_WIDTH
 
 T = TypeVar("T")
@@ -328,3 +328,51 @@ class DeepConvShapNet(DeepShapleyNetwork, ABC):
         """
         return shapley_values.align_to(
             NAME_BATCH_SIZE, ..., NAME_META_CHANNELS)
+
+    def prune(
+            self, shapley_values: torch.Tensor, id_stage: int
+    ) -> torch.Tensor:
+        r"""
+        Prune the output of a stage
+
+        Args:
+            id_stage (): the index of the stage
+            shapley_values (): the current stage's pre-pruning output
+
+        Returns:
+            the pruned Shapley representation
+
+        """
+        # First check if we need pruning in the first place
+        pruning = self.pruning[id_stage]
+        num_pixels = named_tensor_get_dim(
+            shapley_values, [NAME_HEIGHT, NAME_WIDTH])
+        num_pixels = num_pixels[0] * num_pixels[1]
+        k = int(num_pixels * pruning)  # the # to prune
+        if pruning * k == 0:
+            return shapley_values
+
+        name_size = {name: size for name, size in
+                     zip(shapley_values.names, shapley_values.shape)}
+
+        shapley_values = shapley_values.align_to(
+            ..., NAME_HEIGHT, NAME_WIDTH, NAME_META_CHANNELS).flatten(
+            [NAME_HEIGHT, NAME_WIDTH], NAME_FEATURES)
+        # get the norm of the vectors for each of the pixels, based on
+        # which the pruning will be performed
+        abs_values = torch.linalg.norm(
+            shapley_values.rename(None), ord=1, dim=-1)
+        # generate top-k
+        top_k = torch.topk(
+            abs_values.rename(None), k, largest=False
+        )[0].max(1, keepdim=True)[0]  # threshold of the values to prune
+        abs_values = abs_values.rename(NAME_BATCH_SIZE, NAME_FEATURES) > top_k
+        shapley_values = shapley_values * abs_values.align_to(...,
+                                                              NAME_META_CHANNELS)
+        shapley_values = shapley_values.unflatten(
+            NAME_FEATURES, [[NAME_HEIGHT, name_size[NAME_HEIGHT]],
+                            [NAME_WIDTH, name_size[NAME_WIDTH]]])
+
+        shapley_values = shapley_values.align_to(*name_size.keys())
+
+        return shapley_values
