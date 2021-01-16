@@ -144,3 +144,15 @@ args = {
 dcs = DeepConvShapNet(**args)
 
 ```
+# Citation
+If this is useful, you could cite our work as
+```
+@inproceedings{
+wang2021shapley,
+title={Shapley Explanation Networks},
+author={Rui Wang and Xiaoqian Wang and David I. Inouye},
+booktitle={International Conference on Learning Representations},
+year={2021},
+url={https://openreview.net/forum?id=vsU0efpivw}
+}
+```
